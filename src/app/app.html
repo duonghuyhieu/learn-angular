@@ -1,0 +1,50 @@
+@switch (currentMode()) {
+  @case ('menu') {
+    <div class="main-menu">
+      <div class="logo-section">
+        <div class="angular-logo">A</div>
+        <h1>Angular Learning Hub</h1>
+        <p>Ôn tập Angular hiệu quả</p>
+      </div>
+
+      <div class="menu-cards">
+        <button class="menu-card learn" (click)="setMode('learn')">
+          <div class="card-icon">📚</div>
+          <h2>Học Kiến Thức</h2>
+          <p>Đọc lý thuyết với code examples và tips hữu ích</p>
+          <span class="card-badge">9 bài học</span>
+        </button>
+
+        <button class="menu-card quiz" (click)="setMode('quiz')">
+          <div class="card-icon">🎮</div>
+          <h2>Làm Quiz</h2>
+          <p>Kiểm tra kiến thức với 40+ câu hỏi trắc nghiệm</p>
+          <span class="card-badge">40+ câu hỏi</span>
+        </button>
+      </div>
+
+      <div class="features-list">
+        <div class="feature">
+          <span class="icon">⚡</span>
+          <span>Angular 17+ Signals</span>
+        </div>
+        <div class="feature">
+          <span class="icon">🔀</span>
+          <span>New Control Flow</span>
+        </div>
+        <div class="feature">
+          <span class="icon">🧩</span>
+          <span>Standalone Components</span>
+        </div>
+      </div>
+    </div>
+  }
+
+  @case ('quiz') {
+    <app-flashcard-game (backToMenu)="setMode('menu')"></app-flashcard-game>
+  }
+
+  @case ('learn') {
+    <app-knowledge-reader (backToMenu)="setMode('menu')"></app-knowledge-reader>
+  }
+}

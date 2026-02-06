@@ -1,0 +1,691 @@
+// Variables
+$primary: #dd0031;
+$primary-dark: #c3002f;
+$secondary: #1976d2;
+$success: #4caf50;
+$error: #f44336;
+$dark: #1a1a2e;
+$darker: #16162a;
+$card-bg: #252542;
+$text: #ffffff;
+$text-muted: #a0a0b0;
+
+// Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin card-style {
+  background: $card-bg;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+// Main container
+.game-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, $dark 0%, $darker 100%);
+  color: $text;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+// ============ MENU SCREEN ============
+.menu-screen {
+  @include flex-center;
+  flex-direction: column;
+  min-height: calc(100vh - 40px);
+  gap: 30px;
+  animation: fadeIn 0.5s ease;
+  position: relative;
+
+  .back-btn {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    color: $text-muted;
+    font-size: 0.95rem;
+    cursor: pointer;
+    padding: 10px 0;
+    transition: color 0.3s;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    &:hover {
+      color: $text;
+    }
+  }
+
+  .logo {
+    text-align: center;
+
+    .angular-logo {
+      width: 100px;
+      height: 100px;
+      background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+      border-radius: 20px;
+      @include flex-center;
+      font-size: 60px;
+      font-weight: bold;
+      margin: 0 auto 20px;
+      box-shadow: 0 10px 30px rgba($primary, 0.4);
+      animation: pulse 2s ease infinite;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      background: linear-gradient(135deg, $primary, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: $text-muted;
+      margin-top: 10px;
+      font-size: 1.1rem;
+    }
+  }
+
+  .settings-card {
+    @include card-style;
+    padding: 30px;
+    width: 100%;
+    max-width: 400px;
+
+    .setting-group {
+      margin-bottom: 20px;
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: $text-muted;
+        font-size: 0.9rem;
+      }
+
+      select {
+        width: 100%;
+        padding: 12px 16px;
+        background: $darker;
+        border: 2px solid transparent;
+        border-radius: 10px;
+        color: $text;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover, &:focus {
+          border-color: $primary;
+          outline: none;
+        }
+
+        option {
+          background: $darker;
+        }
+      }
+    }
+
+    .start-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 1.2rem;
+      font-weight: 600;
+      cursor: pointer;
+      @include flex-center;
+      gap: 10px;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+
+      svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba($primary, 0.4);
+      }
+    }
+  }
+
+  .features {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    .feature {
+      @include flex-center;
+      gap: 8px;
+      color: $text-muted;
+
+      .icon {
+        font-size: 1.5rem;
+      }
+    }
+  }
+}
+
+// ============ GAME SCREEN ============
+.game-screen {
+  max-width: 600px;
+  margin: 0 auto;
+  animation: fadeIn 0.5s ease;
+
+  .progress-section {
+    margin-bottom: 30px;
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      color: $text-muted;
+
+      .score {
+        color: $success;
+        font-weight: 600;
+      }
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: $card-bg;
+      border-radius: 4px;
+      overflow: hidden;
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, $primary, #ff6b6b);
+        border-radius: 4px;
+        transition: width 0.5s ease;
+      }
+    }
+  }
+
+  .card-container {
+    perspective: 1000px;
+
+    &.flipped .card {
+      transform: rotateY(180deg);
+    }
+
+    .card {
+      position: relative;
+      width: 100%;
+      min-height: 500px;
+      transition: transform 0.6s ease;
+      transform-style: preserve-3d;
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      min-height: 500px;
+      backface-visibility: hidden;
+      @include card-style;
+      padding: 30px;
+      box-sizing: border-box;
+    }
+
+    .card-back {
+      transform: rotateY(180deg);
+      @include flex-center;
+      flex-direction: column;
+      text-align: center;
+    }
+  }
+
+  .card-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+
+    .category-badge, .difficulty-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .category-badge {
+      background: rgba($secondary, 0.2);
+      color: lighten($secondary, 20%);
+    }
+
+    .difficulty-badge {
+      &[data-difficulty="easy"] {
+        background: rgba($success, 0.2);
+        color: lighten($success, 20%);
+      }
+      &[data-difficulty="medium"] {
+        background: rgba(#ff9800, 0.2);
+        color: #ffb74d;
+      }
+      &[data-difficulty="hard"] {
+        background: rgba($error, 0.2);
+        color: lighten($error, 20%);
+      }
+    }
+  }
+
+  .question-text {
+    font-size: 1.3rem;
+    line-height: 1.6;
+    margin-bottom: 30px;
+    font-weight: 500;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+
+    .option-btn {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 16px 20px;
+      background: $darker;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      color: $text;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: left;
+
+      .option-letter {
+        width: 32px;
+        height: 32px;
+        @include flex-center;
+        background: $card-bg;
+        border-radius: 8px;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+
+      &:hover:not(:disabled) {
+        border-color: $primary;
+        transform: translateX(5px);
+      }
+
+      &.selected {
+        border-color: $primary;
+        background: rgba($primary, 0.1);
+
+        .option-letter {
+          background: $primary;
+        }
+      }
+
+      &.correct {
+        border-color: $success;
+        background: rgba($success, 0.1);
+
+        .option-letter {
+          background: $success;
+        }
+      }
+
+      &.wrong {
+        border-color: $error;
+        background: rgba($error, 0.1);
+
+        .option-letter {
+          background: $error;
+        }
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    &:not(:disabled):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba($primary, 0.4);
+    }
+  }
+
+  // Card back styles
+  .result-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    @include flex-center;
+    margin-bottom: 20px;
+
+    svg {
+      width: 50px;
+      height: 50px;
+    }
+
+    &.correct {
+      background: rgba($success, 0.2);
+      color: $success;
+    }
+
+    &.wrong {
+      background: rgba($error, 0.2);
+      color: $error;
+    }
+  }
+
+  .result-text {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+
+    &.correct { color: $success; }
+    &.wrong { color: $error; }
+  }
+
+  .explanation {
+    background: $darker;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-align: left;
+
+    h4 {
+      color: $text-muted;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+
+    p {
+      line-height: 1.6;
+      margin: 0;
+    }
+  }
+
+  .next-btn {
+    @include flex-center;
+    gap: 10px;
+    padding: 14px 30px;
+    background: linear-gradient(135deg, $secondary 0%, darken($secondary, 10%) 100%);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba($secondary, 0.4);
+    }
+  }
+}
+
+// ============ RESULT SCREEN ============
+.result-screen {
+  @include flex-center;
+  min-height: calc(100vh - 40px);
+  animation: fadeIn 0.5s ease;
+
+  .result-card {
+    @include card-style;
+    padding: 40px;
+    text-align: center;
+    max-width: 400px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 30px;
+    }
+
+    .score-circle {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin: 0 auto 30px;
+
+      svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+
+        circle {
+          fill: none;
+          stroke-width: 8;
+          stroke-linecap: round;
+
+          &.bg {
+            stroke: $darker;
+          }
+
+          &.progress {
+            stroke: $success;
+            stroke-dasharray: 283;
+            stroke-dashoffset: calc(283 - var(--progress, 0));
+            transition: stroke-dashoffset 1s ease;
+          }
+        }
+      }
+
+      .score-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+
+        .score-number {
+          font-size: 3rem;
+          font-weight: bold;
+          color: $success;
+        }
+
+        .score-total {
+          font-size: 1.5rem;
+          color: $text-muted;
+        }
+      }
+    }
+
+    .score-message {
+      font-size: 1.2rem;
+      margin-bottom: 30px;
+      line-height: 1.5;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 30px;
+
+      .stat {
+        text-align: center;
+
+        .stat-value {
+          display: block;
+          font-size: 2rem;
+          font-weight: bold;
+
+          &.correct { color: $success; }
+          &.wrong { color: $error; }
+        }
+
+        .stat-label {
+          color: $text-muted;
+          font-size: 0.9rem;
+        }
+      }
+    }
+
+    .restart-btn {
+      @include flex-center;
+      gap: 10px;
+      padding: 14px 30px;
+      background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin: 0 auto;
+
+      svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba($primary, 0.4);
+      }
+    }
+
+    // Confetti animation
+    .confetti {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: hidden;
+
+      .confetti-piece {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        top: -10px;
+        animation: confetti-fall 3s ease-in-out infinite;
+        animation-delay: var(--delay, 0s);
+
+        &:nth-child(odd) {
+          background: $primary;
+          left: calc(10% * var(--delay, 1));
+        }
+
+        &:nth-child(even) {
+          background: $success;
+          left: calc(90% - 10% * var(--delay, 1));
+        }
+      }
+    }
+  }
+}
+
+// ============ ANIMATIONS ============
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(400px) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+// ============ RESPONSIVE ============
+@media (max-width: 480px) {
+  .game-container {
+    padding: 15px;
+  }
+
+  .menu-screen {
+    .logo {
+      h1 { font-size: 2rem; }
+      .angular-logo {
+        width: 80px;
+        height: 80px;
+        font-size: 48px;
+      }
+    }
+
+    .settings-card {
+      padding: 20px;
+    }
+  }
+
+  .game-screen {
+    .card-container {
+      .card-front, .card-back {
+        padding: 20px;
+        min-height: 450px;
+      }
+    }
+
+    .question-text {
+      font-size: 1.1rem;
+    }
+
+    .options .option-btn {
+      padding: 12px 15px;
+      font-size: 0.9rem;
+    }
+  }
+
+  .result-screen .result-card {
+    padding: 25px;
+  }
+}

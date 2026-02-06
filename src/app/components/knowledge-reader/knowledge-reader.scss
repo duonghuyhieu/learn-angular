@@ -1,0 +1,525 @@
+// Variables
+$primary: #dd0031;
+$primary-dark: #c3002f;
+$secondary: #1976d2;
+$success: #4caf50;
+$dark: #1a1a2e;
+$darker: #16162a;
+$card-bg: #252542;
+$text: #ffffff;
+$text-muted: #a0a0b0;
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.knowledge-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, $dark 0%, $darker 100%);
+  color: $text;
+  padding: 20px;
+}
+
+// ============ LESSON LIST ============
+.lesson-list {
+  max-width: 900px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease;
+
+  .back-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: none;
+    color: $text-muted;
+    font-size: 0.95rem;
+    cursor: pointer;
+    padding: 10px 0;
+    margin-bottom: 20px;
+    transition: color 0.3s;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    &:hover {
+      color: $text;
+    }
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 40px;
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, $primary, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    p {
+      color: $text-muted;
+      font-size: 1.1rem;
+    }
+  }
+
+  .lessons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+  }
+
+  .lesson-card {
+    background: $card-bg;
+    border: 2px solid transparent;
+    border-radius: 16px;
+    padding: 25px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.3s ease;
+    color: $text;
+
+    &:hover {
+      border-color: $primary;
+      transform: translateY(-4px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .lesson-icon {
+      font-size: 2.5rem;
+      display: block;
+      margin-bottom: 15px;
+    }
+
+    h3 {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+    }
+
+    .section-count {
+      color: $text-muted;
+      font-size: 0.9rem;
+    }
+  }
+}
+
+// ============ LESSON READER ============
+.lesson-reader {
+  max-width: 850px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease;
+
+  .reader-header {
+    margin-bottom: 30px;
+
+    .close-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      color: $text-muted;
+      font-size: 0.95rem;
+      cursor: pointer;
+      padding: 10px 0;
+      margin-bottom: 20px;
+      transition: color 0.3s;
+
+      svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      &:hover {
+        color: $text;
+      }
+    }
+
+    .lesson-title {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+
+      .icon {
+        font-size: 2.5rem;
+      }
+
+      h2 {
+        font-size: 1.8rem;
+        margin: 0;
+      }
+    }
+
+    .progress-dots {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: $card-bg;
+        border: 2px solid $text-muted;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        padding: 0;
+
+        &:hover {
+          border-color: $primary;
+        }
+
+        &.active {
+          background: $primary;
+          border-color: $primary;
+          transform: scale(1.2);
+        }
+
+        &.completed {
+          background: $success;
+          border-color: $success;
+        }
+      }
+    }
+  }
+
+  .section-content {
+    background: $card-bg;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+
+    .section-header {
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+      .section-number {
+        display: inline-block;
+        background: $primary;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+      }
+
+      h3 {
+        font-size: 1.5rem;
+        margin: 0;
+      }
+    }
+
+    .content-body {
+      .text-content {
+        line-height: 1.8;
+        font-size: 1.05rem;
+        color: rgba(255, 255, 255, 0.9);
+
+        :deep(p) {
+          margin-bottom: 15px;
+        }
+
+        :deep(strong) {
+          color: $primary;
+        }
+
+        :deep(ul), :deep(ol) {
+          margin: 15px 0;
+          padding-left: 25px;
+        }
+
+        :deep(li) {
+          margin-bottom: 8px;
+        }
+      }
+
+      .code-block {
+        margin: 25px 0;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #0d0d1a;
+
+        .code-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px 15px;
+          background: rgba(255, 255, 255, 0.05);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+          .filename {
+            color: $text-muted;
+            font-size: 0.85rem;
+          }
+
+          .language {
+            background: $primary;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+          }
+        }
+
+        pre {
+          margin: 0;
+          padding: 20px;
+          overflow-x: auto;
+
+          code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: #e0e0e0;
+          }
+        }
+      }
+
+      .tips-box {
+        margin-top: 25px;
+        background: rgba($secondary, 0.1);
+        border: 1px solid rgba($secondary, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+
+        h4 {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: lighten($secondary, 20%);
+          margin: 0 0 15px 0;
+          font-size: 1rem;
+
+          svg {
+            width: 20px;
+            height: 20px;
+          }
+        }
+
+        ul {
+          margin: 0;
+          padding-left: 20px;
+
+          li {
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.85);
+            line-height: 1.6;
+
+            &:last-child {
+              margin-bottom: 0;
+            }
+          }
+        }
+      }
+    }
+
+    .navigation {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+
+      .nav-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        svg {
+          width: 20px;
+          height: 20px;
+        }
+
+        &.prev {
+          background: $darker;
+          color: $text;
+
+          &:hover:not(:disabled) {
+            background: lighten($darker, 5%);
+          }
+        }
+
+        &.next {
+          background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+          color: white;
+
+          &:hover:not(:disabled) {
+            transform: translateX(4px);
+            box-shadow: 0 5px 20px rgba($primary, 0.4);
+          }
+        }
+
+        &:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        &.highlight {
+          background: linear-gradient(135deg, $success 0%, darken($success, 10%) 100%);
+          animation: pulse-green 2s ease infinite;
+        }
+      }
+    }
+
+    .lesson-complete {
+      margin-top: 30px;
+      padding: 30px;
+      background: linear-gradient(135deg, rgba($success, 0.1) 0%, rgba($success, 0.05) 100%);
+      border: 1px solid rgba($success, 0.3);
+      border-radius: 16px;
+      text-align: center;
+
+      .complete-icon {
+        width: 60px;
+        height: 60px;
+        background: $success;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+
+        svg {
+          width: 35px;
+          height: 35px;
+          color: white;
+        }
+      }
+
+      p {
+        font-size: 1.1rem;
+        margin-bottom: 20px;
+        color: rgba(255, 255, 255, 0.9);
+
+        strong {
+          color: $success;
+        }
+      }
+
+      .congrats {
+        color: $success;
+        font-weight: 600;
+      }
+
+      .next-lesson-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 28px;
+        background: linear-gradient(135deg, $success 0%, darken($success, 10%) 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        svg {
+          width: 20px;
+          height: 20px;
+        }
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 30px rgba($success, 0.4);
+        }
+      }
+
+      .back-to-list-btn {
+        padding: 12px 24px;
+        background: $darker;
+        border: none;
+        border-radius: 10px;
+        color: $text;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+          background: lighten($darker, 5%);
+        }
+      }
+    }
+  }
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba($success, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba($success, 0); }
+}
+
+// ============ ANIMATIONS ============
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ============ RESPONSIVE ============
+@media (max-width: 600px) {
+  .lesson-list {
+    .header h1 {
+      font-size: 1.8rem;
+    }
+
+    .lessons-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .lesson-reader {
+    .section-content {
+      padding: 20px;
+
+      .section-header h3 {
+        font-size: 1.3rem;
+      }
+
+      .content-body {
+        .text-content {
+          font-size: 1rem;
+        }
+
+        .code-block pre {
+          padding: 15px;
+
+          code {
+            font-size: 0.8rem;
+          }
+        }
+      }
+
+      .navigation {
+        flex-direction: column;
+        gap: 10px;
+
+        .nav-btn {
+          justify-content: center;
+        }
+      }
+    }
+  }
+}

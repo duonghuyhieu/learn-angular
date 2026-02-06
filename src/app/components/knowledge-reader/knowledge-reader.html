@@ -1,0 +1,164 @@
+<div class="knowledge-container">
+  <!-- LESSON LIST -->
+  @if (!selectedLesson()) {
+    <div class="lesson-list">
+      <button class="back-btn" (click)="goBack()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Quay lại Menu
+      </button>
+
+      <div class="header">
+        <h1>Kiến Thức Angular</h1>
+        <p>Chọn bài học để bắt đầu</p>
+      </div>
+
+      <div class="lessons-grid">
+        @for (lesson of lessons; track lesson.id) {
+          <button class="lesson-card" (click)="selectLesson(lesson.id)">
+            <span class="lesson-icon">{{ lesson.icon }}</span>
+            <h3>{{ lesson.title }}</h3>
+            <span class="section-count">{{ lesson.sections.length }} phần</span>
+          </button>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- LESSON READER -->
+  @if (selectedLesson(); as lesson) {
+    <div class="lesson-reader">
+      <div class="reader-header">
+        <button class="close-btn" (click)="closeLesson()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Danh sách bài học
+        </button>
+
+        <div class="lesson-title">
+          <span class="icon">{{ lesson.icon }}</span>
+          <h2>{{ lesson.title }}</h2>
+        </div>
+
+        <div class="progress-dots">
+          @for (section of lesson.sections; track $index) {
+            <button
+              class="dot"
+              [class.active]="$index === currentSectionIndex()"
+              [class.completed]="$index < currentSectionIndex()"
+              (click)="goToSection($index)"
+              [title]="section.title"
+            ></button>
+          }
+        </div>
+      </div>
+
+      @if (currentSection(); as section) {
+        <div class="section-content">
+          <div class="section-header">
+            <span class="section-number">{{ currentSectionIndex() + 1 }}/{{ totalSections() }}</span>
+            <h3>{{ section.title }}</h3>
+          </div>
+
+          <div class="content-body">
+            <div class="text-content" [innerHTML]="formatContent(section.content)"></div>
+
+            @if (section.code) {
+              <div class="code-block">
+                @if (section.code.filename) {
+                  <div class="code-header">
+                    <span class="filename">{{ section.code.filename }}</span>
+                    <span class="language">{{ section.code.language }}</span>
+                  </div>
+                }
+                <pre><code>{{ section.code.code }}</code></pre>
+              </div>
+            }
+
+            @if (section.tips && section.tips.length > 0) {
+              <div class="tips-box">
+                <h4>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4M12 8h.01"/>
+                  </svg>
+                  Tips
+                </h4>
+                <ul>
+                  @for (tip of section.tips; track $index) {
+                    <li>{{ tip }}</li>
+                  }
+                </ul>
+              </div>
+            }
+          </div>
+
+          <div class="navigation">
+            <button
+              class="nav-btn prev"
+              [disabled]="currentSectionIndex() === 0 && !prevLesson()"
+              (click)="currentSectionIndex() === 0 ? goToPrevLesson() : prevSection()"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+              @if (currentSectionIndex() === 0 && prevLesson()) {
+                {{ prevLesson()!.title }}
+              } @else {
+                Trước
+              }
+            </button>
+
+            @if (isLastSection() && nextLesson()) {
+              <button class="nav-btn next highlight" (click)="goToNextLesson()">
+                Bài tiếp: {{ nextLesson()!.title }}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            } @else {
+              <button
+                class="nav-btn next"
+                [disabled]="isLastSection() && !nextLesson()"
+                (click)="nextSection()"
+              >
+                Tiếp
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </button>
+            }
+          </div>
+
+          <!-- Lesson completion -->
+          @if (isLastSection()) {
+            <div class="lesson-complete">
+              <div class="complete-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 6L9 17l-5-5"/>
+                </svg>
+              </div>
+              <p>Hoàn thành bài <strong>{{ selectedLesson()!.title }}</strong>!</p>
+
+              @if (nextLesson(); as next) {
+                <button class="next-lesson-btn" (click)="goToNextLesson()">
+                  Học bài tiếp: {{ next.icon }} {{ next.title }}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </button>
+              } @else {
+                <p class="congrats">Chúc mừng! Bạn đã hoàn thành tất cả bài học!</p>
+                <button class="back-to-list-btn" (click)="closeLesson()">
+                  Quay lại danh sách
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>
