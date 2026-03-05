@@ -66,10 +66,10 @@ export class QuestionService {
     },
     {
       id: 7,
-      question: 'Trong Angular 17+, cách mới để khai báo standalone component là gì?',
-      options: ['standalone: true trong @Component', 'Tất cả component đều standalone mặc định', '@Standalone() decorator', 'Không cần khai báo'],
+      question: 'Từ Angular 19+, standalone component được khai báo như thế nào?',
+      options: ['Phải viết standalone: true trong @Component', 'Tất cả component đều standalone mặc định', '@Standalone() decorator', 'Phải import StandaloneModule'],
       correctAnswer: 1,
-      explanation: 'Từ Angular 17+, tất cả component mặc định là standalone. Không cần khai báo standalone: true nữa.',
+      explanation: 'Từ Angular 19+, tất cả component mặc định là standalone. Không cần khai báo standalone: true nữa. Ở Angular 17-18, vẫn cần viết standalone: true.',
       category: 'components',
       difficulty: 'medium'
     },
@@ -486,8 +486,9 @@ export class QuestionService {
     }));
   }
 
-  getScoreMessage(): string {
+  scoreMessage = computed(() => {
     const state = this._gameState();
+    if (state.totalQuestions === 0) return '';
     const percentage = (state.score / state.totalQuestions) * 100;
 
     if (percentage === 100) return '🎉 Hoàn hảo! Bạn là Angular Master!';
@@ -495,7 +496,7 @@ export class QuestionService {
     if (percentage >= 60) return '👍 Khá tốt! Cần ôn thêm một chút nữa!';
     if (percentage >= 40) return '📚 Cố gắng hơn! Hãy review lại các concept!';
     return '💪 Đừng nản! Hãy học lại từ đầu và thử lại!';
-  }
+  });
 
   resetGame(): void {
     this._gameState.set({

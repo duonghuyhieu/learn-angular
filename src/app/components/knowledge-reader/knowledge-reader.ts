@@ -1,10 +1,8 @@
 import { Component, inject, signal, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { KnowledgeService } from '../../services/knowledge.service';
 
 @Component({
   selector: 'app-knowledge-reader',
-  imports: [CommonModule],
   templateUrl: './knowledge-reader.html',
   styleUrl: './knowledge-reader.scss'
 })

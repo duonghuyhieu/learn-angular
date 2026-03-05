@@ -874,7 +874,7 @@ effect(() => {
           tips: [
             'Effect được BATCH: set() 3 lần liên tiếp = effect chỉ chạy 1 lần với giá trị cuối cùng',
             'onCleanup() BẮT BUỘC chạy trước mỗi re-run - dùng cho unsubscribe, clearTimeout, abort controller',
-            'allowSignalWrites: true cho phép set() signal trong effect - NHƯNG cực kỳ dễ tạo infinite loop',
+            'Angular 19+: effect() mặc định cho phép write signals (allowSignalWrites deprecated). Tuy nhiên cực kỳ dễ tạo infinite loop!',
             'effect() chỉ chạy trong injection context (constructor, field initializer) - KHÔNG trong ngOnInit'
           ]
         },
@@ -2083,7 +2083,7 @@ export class ModernComponent {
 `
           },
           tips: [
-            'takeUntilDestroyed() trong constructor/field - KHÔNG dùng trong ngOnInit (ngoài injection context)',
+            'takeUntilDestroyed() không tham số: chỉ trong injection context. Có DestroyRef: takeUntilDestroyed(this.destroyRef) dùng được ở ngOnInit',
             'async pipe: giảm n = subscriptions, tự trigger OnPush CD, tự cleanup. WIN-WIN-WIN',
             'subscribe trong subscribe = CODE SMELL. Dùng switchMap/mergeMap/concatMap thay thế',
             'shareReplay({ refCount: true }): refCount: true = auto-cleanup khi hết subscriber. false = cache vĩnh viễn'
@@ -3220,7 +3220,7 @@ class ApplicationRef {
           title: 'Zoneless & Signals CD',
           content: `**Zoneless Angular - tương lai của Change Detection**
 
-**provideExperimentalZonelessChangeDetection() (Angular 18+):**
+**provideZonelessChangeDetection() (Angular 19+ stable):**
 Loại bỏ Zone.js hoàn toàn. CD chỉ chạy khi:
 - Signal thay đổi
 - DOM event handlers
@@ -3250,7 +3250,7 @@ Loại bỏ Zone.js hoàn toàn. CD chỉ chạy khi:
 export const appConfig: ApplicationConfig = {
   providers: [
     // Replace zone-based CD with signal-based
-    provideExperimentalZonelessChangeDetection(),
+    provideZonelessChangeDetection(),
     // OR: keep Zone but optimize
     // provideZoneChangeDetection({ eventCoalescing: true })
   ]
@@ -3404,14 +3404,20 @@ Test signals trực tiếp: service.count() === 0, service.increment(), expect(s
             language: 'typescript',
             filename: 'user.service.spec.ts',
             code: `import { TestBed } from '@angular/core/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+
 describe('UserService', () => {
   let service: UserService;
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-      providers: [UserService]
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),  // Standalone API thay HttpClientTestingModule
+        UserService
+      ]
     });
 
     service = TestBed.inject(UserService);

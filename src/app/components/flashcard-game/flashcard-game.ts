@@ -82,9 +82,7 @@ export class FlashcardGame {
     this.backToMenu.emit();
   }
 
-  getScoreMessage(): string {
-    return this.questionService.getScoreMessage();
-  }
+  scoreMessage = this.questionService.scoreMessage;
 
   getCategoryLabel(cat: string): string {
     const labels: Record<string, string> = {
