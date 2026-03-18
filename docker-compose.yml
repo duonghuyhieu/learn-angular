@@ -1,0 +1,11 @@
+services:
+  anglearn-frontend:
+    build: .
+    container_name: anglearn-frontend
+    restart: unless-stopped
+    networks:
+      - internet_boundary
+
+networks:
+  internet_boundary:
+    external: true
