@@ -4745,6 +4745,1510 @@ export class UserListComponent {}
           ]
         }
       ]
+    },
+    // === FRONTEND ARCHITECTURE ===
+    {
+      id: 'frontend-architecture',
+      title: 'Frontend Architecture Deep Dive',
+      category: 'frontend-architecture',
+      icon: '🏗️',
+      sections: [
+        // LEVEL 1
+        {
+          title: 'Level 1: Nền tảng cốt lõi',
+          content: `**Những concept "ai cũng biết" nhưng hỏi sâu thì lộ lỗ hổng**
+
+### Hydration
+Quá trình **đính kèm event listeners và state** vào HTML tĩnh đã được server render. Browser nhận HTML → hiển thị ngay (FCP nhanh) → JS tải xong → React/Angular "hydrate" = gắn interactivity.
+
+**Vấn đề:** Nếu HTML server và client không khớp → **hydration mismatch** → re-render toàn bộ, phản tác dụng.
+
+### Virtual DOM Diffing Complexity
+- **Naive tree diff:** O(n³) — quá chậm
+- **React's heuristic:** O(n) nhờ 2 giả định: (1) Khác type → destroy + recreate, (2) \`key\` prop xác định element identity
+- **Angular không dùng Virtual DOM** — Ivy compiler sinh incremental DOM instructions trực tiếp
+
+### Event Loop: Macrotasks vs Microtasks
+| Loại | Ví dụ | Khi nào chạy |
+|------|-------|---------------|
+| **Microtask** | Promise.then, queueMicrotask, MutationObserver | Sau MỖI macrotask, drain hết queue |
+| **Macrotask** | setTimeout, setInterval, I/O, UI rendering | Mỗi lần 1 task từ queue |
+
+**Thứ tự:** Call stack trống → Drain ALL microtasks → 1 macrotask → Drain ALL microtasks → Render → Lặp lại
+
+### Critical Rendering Path
+\`\`\`
+HTML → DOM Tree
+                ↘
+                  Render Tree → Layout → Paint → Composite
+                ↗
+CSS  → CSSOM
+\`\`\`
+**Tối ưu:** Minimize render-blocking CSS, defer non-critical JS, inline critical CSS, reduce DOM depth.
+
+### Code Splitting Strategies
+- **Route-based:** Mỗi route = 1 chunk (phổ biến nhất)
+- **Component-based:** Lazy load components nặng (modal, chart, editor)
+- **Vendor splitting:** Tách third-party libs ra chunk riêng (cache lâu hơn)
+- **Angular:** \`loadComponent\` / \`loadChildren\` trong route config
+
+### Dynamic Import Chunking
+\`import('./module')\` tạo split point → bundler (webpack/esbuild) tách thành chunk riêng. Browser chỉ tải khi cần.
+
+**Magic comments (webpack):**
+- \`webpackChunkName\`: đặt tên chunk
+- \`webpackPrefetch\`: tải trước khi idle
+- \`webpackPreload\`: tải song song với parent
+
+### Preload vs Prefetch vs Preconnect
+| Directive | Mục đích | Priority | Khi nào dùng |
+|-----------|----------|----------|------------|
+| \`preload\` | Tải ngay tài nguyên cần cho trang HIỆN TẠI | High | Font, critical CSS, hero image |
+| \`prefetch\` | Tải trước tài nguyên cho trang TIẾP THEO | Low (idle) | Next route chunk |
+| \`preconnect\` | Thiết lập kết nối sớm (DNS + TCP + TLS) | - | CDN, API domain |
+
+### CORS Preflight
+Browser gửi **OPTIONS request** trước khi gửi actual request khi: method không phải GET/POST/HEAD, hoặc có custom headers, hoặc Content-Type không phải simple types.
+
+**Flow:** OPTIONS → Server trả \`Access-Control-Allow-*\` headers → Browser kiểm tra → Gửi actual request (hoặc block).
+
+### CSRF vs XSS Mitigation
+| Attack | Cơ chế | Phòng chống |
+|--------|--------|-------------|
+| **XSS** | Inject script vào page | CSP, sanitize input, escape output, Trusted Types |
+| **CSRF** | Lợi dụng cookie tự động gửi | CSRF token, SameSite cookie, check Origin header |
+
+**Angular built-in:** \`HttpClient\` tự động gửi XSRF token (đọc từ cookie \`XSRF-TOKEN\`, gửi header \`X-XSRF-TOKEN\`).
+
+### Web Workers vs Service Workers
+| Feature | Web Worker | Service Worker |
+|---------|-----------|----------------|
+| Mục đích | Xử lý CPU-intensive off-main-thread | Proxy network requests, offline, push |
+| Lifecycle | Sống cùng page | Sống độc lập, có install/activate/fetch events |
+| DOM access | Không | Không |
+| Số lượng | Nhiều per page | 1 per scope (origin + path) |`,
+          code: {
+            language: 'typescript',
+            filename: 'event-loop-demo.ts',
+            code: `// Event Loop: thứ tự thực thi
+console.log('1. Sync');             // 1st
+
+setTimeout(() => {
+  console.log('5. Macrotask');       // 5th
+}, 0);
+
+Promise.resolve().then(() => {
+  console.log('3. Microtask 1');     // 3rd
+}).then(() => {
+  console.log('4. Microtask 2');     // 4th
+});
+
+console.log('2. Sync');             // 2nd
+
+// Output: 1, 2, 3, 4, 5
+// Microtasks (Promise) luôn chạy trước Macrotasks`
+          },
+          tips: [
+            'Hydration mismatch là bug phổ biến nhất khi làm SSR — luôn kiểm tra code chạy khác nhau giữa server/client (window, localStorage)',
+            'Event loop: Promise.then() LUÔN chạy trước setTimeout(fn, 0) — đây là câu hỏi interview kinh điển',
+            'Preload quá nhiều tài nguyên = không preload gì cả — browser sẽ ignore nếu bandwidth đã bão hòa',
+            'CORS preflight có thể cache được qua Access-Control-Max-Age — giảm overhead cho repeated requests'
+          ]
+        },
+        // LEVEL 2
+        {
+          title: 'Level 2: React Core & Rendering Mechanics',
+          content: `**Hiểu sâu cách React hoạt động — kiến thức cross-framework**
+
+### Reconciliation Algorithm
+Thuật toán so sánh cây Virtual DOM cũ và mới để tìm minimum DOM operations:
+1. **Khác root type** (\`<div>\` → \`<span>\`): Destroy toàn bộ subtree, build mới
+2. **Cùng type DOM element:** So sánh attributes, chỉ update khác biệt
+3. **Cùng type component:** Giữ instance, update props → re-render
+4. **Key prop:** Xác định identity trong list → tránh re-mount không cần thiết
+
+### Fiber Architecture
+**Fiber = đơn vị công việc nhỏ nhất** trong React (1 Fiber ≈ 1 component). Thay thế call stack đệ quy bằng linked list:
+- **child** → con đầu tiên
+- **sibling** → anh em kế tiếp
+- **return** → parent
+
+**Lợi ích:** React có thể **pause, resume, abort** render giữa chừng → không block main thread.
+
+### Concurrent Rendering
+React 18+ có thể render nhiều version UI **cùng lúc** mà không commit lên DOM cho đến khi sẵn sàng.
+
+**Ví dụ thực tế:**
+- User gõ search → React bắt đầu render kết quả
+- User gõ thêm ký tự → React **abort** render cũ, bắt đầu render mới
+- Không bị janky vì render cũ chưa bao giờ commit lên DOM
+
+### Time Slicing
+Chia render work thành các **5ms chunks**, trả quyền cho browser giữa mỗi chunk:
+\`\`\`
+[Render 5ms] → [Browser paint] → [Render 5ms] → [Browser paint] → ...
+\`\`\`
+Main thread không bị block → animation vẫn mượt 60fps trong khi render nặng.
+
+### Scheduler Priorities
+React internal scheduler phân loại work theo priority:
+| Priority | Ví dụ | Timeout |
+|----------|-------|---------|
+| Immediate | Click, input | Sync |
+| User-blocking | Hover | 250ms |
+| Normal | Data fetch render | 5s |
+| Low | Hidden content | 10s |
+| Idle | Analytics, logging | Never expires |
+
+### Suspense Boundaries
+\`<Suspense fallback={<Loading />}>\` tạo "ranh giới chờ" — component con throw Promise → Suspense bắt → hiển thị fallback → Promise resolve → render component con.
+
+**Key insight:** Suspense không chỉ cho lazy loading — nó là cơ chế chung cho async data (React Server Components, use() hook).
+
+### Selective Hydration
+React 18 + Suspense: thay vì hydrate toàn bộ page → hydrate **từng phần độc lập**:
+1. HTML stream arrive → hiển thị ngay (static)
+2. JS cho Suspense boundary A arrive → hydrate A
+3. User click vào B (chưa hydrated) → React **ưu tiên hydrate B** trước!
+
+### Server Components (RSC)
+Component chạy **CHỈ trên server** — không bao giờ ship JS xuống client:
+- Trực tiếp query database, đọc file system
+- Zero bundle size cho component logic
+- Không thể có state, effects, hay event handlers
+- **Client Components** (\`"use client"\`) cho interactivity
+
+### Tearing in Concurrent UI
+Khi render bị pause giữa chừng, external store có thể thay đổi → một phần UI đọc giá trị cũ, phần khác đọc giá trị mới → **UI không nhất quán**.
+
+**Fix:** \`useSyncExternalStore\` — đảm bảo tất cả components đọc cùng 1 snapshot.
+
+### Stale Closure Problem
+\`\`\`javascript
+function Counter() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      console.log(count); // Luôn là 0! Closure capture giá trị cũ
+    }, 1000);
+    return () => clearInterval(id);
+  }, []); // deps rỗng = effect chỉ chạy 1 lần
+}
+\`\`\`
+**Fix:** Dùng \`ref\`, functional update \`setCount(c => c + 1)\`, hoặc thêm \`count\` vào deps.`,
+          code: {
+            language: 'typescript',
+            filename: 'fiber-conceptual.ts',
+            code: `// Fiber Node (simplified concept)
+interface FiberNode {
+  type: string | Function;    // 'div' hoặc Component
+  props: any;
+  child: FiberNode | null;    // Con đầu tiên
+  sibling: FiberNode | null;  // Anh em kế tiếp
+  return: FiberNode | null;   // Parent
+  stateNode: any;             // DOM node hoặc class instance
+  effectTag: 'PLACEMENT' | 'UPDATE' | 'DELETION';
+  alternate: FiberNode | null; // Fiber cũ (double buffering)
+}
+
+// Work loop (simplified)
+function workLoop(deadline: IdleDeadline) {
+  while (nextUnitOfWork && deadline.timeRemaining() > 1) {
+    nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+  }
+  // Trả quyền cho browser nếu hết thời gian
+  requestIdleCallback(workLoop);
+}`
+          },
+          tips: [
+            'Angular Ivy cũng dùng incremental DOM tương tự Fiber — không tạo Virtual DOM tree mà sinh DOM instructions trực tiếp',
+            'Stale closure là vấn đề phổ biến trong React hooks — Angular Signals không có vấn đề này vì đọc giá trị tại call-time',
+            'Concurrent rendering chỉ hoạt động với React state (useState/useReducer) — external stores cần useSyncExternalStore',
+            'Server Components pattern đang lan sang các framework khác — hiểu concept để áp dụng cross-framework'
+          ]
+        },
+        // LEVEL 3
+        {
+          title: 'Level 3: Browser Performance Internals',
+          content: `**Hiểu browser rendering pipeline để tối ưu hiệu năng thực sự**
+
+### Layout Thrashing
+Đọc layout property → browser phải tính layout → ghi style → invalidate layout → đọc lại → tính lại...
+\`\`\`javascript
+// ❌ Layout thrashing — mỗi lần đọc offsetHeight buộc browser recalculate
+for (const el of elements) {
+  el.style.height = el.offsetHeight + 10 + 'px'; // read → write → read → write
+}
+
+// ✅ Batch reads rồi batch writes
+const heights = elements.map(el => el.offsetHeight); // batch read
+elements.forEach((el, i) => {
+  el.style.height = heights[i] + 10 + 'px';         // batch write
+});
+\`\`\`
+
+### Paint vs Layout vs Composite
+| Phase | Trigger | Cost | Ví dụ properties |
+|-------|---------|------|------------------|
+| **Layout** (Reflow) | Thay đổi geometry | Cao nhất | width, height, margin, padding, top, left |
+| **Paint** | Thay đổi visual | Trung bình | color, background, box-shadow, border-radius |
+| **Composite** | Transform/opacity | Thấp nhất | transform, opacity, will-change |
+
+**Rule:** Ưu tiên dùng **transform + opacity** cho animation vì chỉ trigger composite layer.
+
+### Browser Compositing Layers
+Browser chia page thành layers, mỗi layer composite **độc lập trên GPU**:
+- Element có \`transform: translateZ(0)\`, \`will-change\`, hoặc \`position: fixed\` → tạo layer mới
+- **Quá nhiều layers = layer explosion** → tốn VRAM, chậm hơn
+
+### GPU Acceleration in CSS
+\`\`\`css
+/* Trigger GPU layer cho animation mượt */
+.animated-element {
+  will-change: transform;     /* Hint cho browser tạo layer trước */
+  transform: translateZ(0);   /* Hack cũ - force GPU layer */
+}
+\`\`\`
+**Chỉ dùng cho elements thực sự animate** — mỗi GPU layer tốn memory.
+
+### CSS Containment
+\`\`\`css
+.widget {
+  contain: layout style paint; /* Hoặc contain: strict / contain: content */
+}
+\`\`\`
+Nói cho browser: "Thay đổi bên trong .widget KHÔNG ảnh hưởng bên ngoài" → browser skip recalculation cho phần còn lại.
+
+| Value | Ý nghĩa |
+|-------|---------|
+| \`layout\` | Layout bên trong không ảnh hưởng bên ngoài |
+| \`paint\` | Không vẽ ra ngoài bounds |
+| \`style\` | Counters/quotes không leak ra ngoài |
+| \`size\` | Element size không phụ thuộc children |
+
+### Render Blocking Resources
+- **CSS mặc định render-blocking** — browser không paint cho đến khi CSSOM ready
+- **JS mặc định parser-blocking** — HTML parser dừng khi gặp \`<script>\`
+- **Fix:** \`<link media="print">\` cho non-critical CSS, \`defer/async\` cho JS
+
+### Render Waterfalls
+Phân tích Chrome DevTools Network tab:
+\`\`\`
+HTML ──────────────┐
+  CSS ─────────────┤ (render blocked)
+    Font ──────────┤ (chờ CSS parse xong mới biết cần font nào)
+  JS ──────────────┤ (parser blocked)
+    API call ──────┘ (chờ JS execute mới fetch)
+\`\`\`
+**Mỗi bậc thang = latency cộng dồn.** Target: flatten waterfall bằng preload, preconnect, inline critical resources.
+
+### Subpixel Rendering
+Browser render text và borders ở **subpixel level** (1/64 pixel). Khi element ở vị trí subpixel (ví dụ left: 10.5px), browser phải **anti-alias** → blur nhẹ.
+
+**Fix cho animations:** Dùng \`transform: translate()\` thay vì thay đổi top/left — GPU xử lý subpixel transform tốt hơn.
+
+### Detached DOM Nodes
+DOM nodes bị remove khỏi document nhưng **vẫn được reference bởi JS** → không được garbage collected → **memory leak**.
+\`\`\`javascript
+// ❌ Leak: biến giữ reference đến removed node
+let cachedNode = document.getElementById('modal');
+document.body.removeChild(cachedNode);
+// cachedNode vẫn giữ toàn bộ subtree trong memory!
+
+// ✅ Fix: null hóa reference
+cachedNode = null;
+\`\`\`
+**Detect:** Chrome DevTools → Memory → Heap Snapshot → tìm "Detached" nodes.
+
+### Garbage Collection Timing
+- **Minor GC (Scavenge):** Chạy thường xuyên, nhanh (~1ms), dọn young generation
+- **Major GC (Mark-Sweep-Compact):** Chạy ít hơn, chậm (~10-100ms), dọn old generation
+- **GC pause = jank** — tránh tạo quá nhiều temporary objects trong hot path (animation, scroll handler)`,
+          code: {
+            language: 'css',
+            filename: 'performance-optimized.css',
+            code: `/* ✅ Animation chỉ dùng composite properties */
+.slide-in {
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+.slide-in.active {
+  transform: translateX(0);
+}
+
+/* ✅ CSS Containment cho widget grid */
+.dashboard-widget {
+  contain: layout style paint;
+  content-visibility: auto;      /* Lazy render off-screen */
+  contain-intrinsic-size: 300px; /* Placeholder size */
+}
+
+/* ✅ Reduce render-blocking */
+/* Critical CSS → inline trong <head> */
+/* Non-critical → load async */
+/* <link rel="preload" href="font.woff2" as="font" crossorigin> */`
+          },
+          tips: [
+            'Layout thrashing là nguyên nhân #1 gây jank — dùng DevTools Performance tab để phát hiện "Forced reflow"',
+            'content-visibility: auto là CSS property mạnh nhất cho long list — browser skip render off-screen elements hoàn toàn',
+            'will-change nên set trước animation và remove sau khi xong — set permanent = lãng phí GPU memory',
+            'Chrome DevTools → Performance → Enable "Layout Shift Regions" để thấy visual CLS realtime'
+          ]
+        },
+        // LEVEL 4
+        {
+          title: 'Level 4: Data & State Management Nâng Cao',
+          content: `**Các pattern quản lý state mà senior developer cần master**
+
+### Structural Sharing
+Khi update immutable data, **tái sử dụng các phần không thay đổi** thay vì deep clone:
+\`\`\`
+oldState = { a: { x: 1 }, b: { y: 2 } }
+newState = { ...oldState, a: { x: 3 } }
+// newState.b === oldState.b (cùng reference!)
+// Chỉ tạo mới object root và node 'a'
+\`\`\`
+**Libraries:** Immer (proxy-based), Immutable.js (persistent data structures với trie).
+
+### Immutable Data Patterns
+| Pattern | Cách dùng | Trade-off |
+|---------|-----------|-----------|
+| Spread operator | \`{...obj, key: val}\` | Đơn giản, shallow only |
+| Immer | \`produce(state, draft => { draft.x = 1 })\` | Mutate syntax + immutable output |
+| Immutable.js | \`Map({ key: val }).set('key', val2)\` | Structural sharing tối ưu, API lạ |
+| structuredClone | \`structuredClone(obj)\` | Deep clone native, chậm cho large objects |
+
+### Referential Equality
+\`\`\`javascript
+const a = { x: 1 };
+const b = { x: 1 };
+a === b; // false! Khác reference
+\`\`\`
+**Tại sao quan trọng:** React.memo, Angular OnPush, computed signal — tất cả dùng **reference check** để quyết định re-render. Nếu tạo object mới mỗi render → luôn re-render.
+
+### Memoization Pitfalls
+1. **Memo object/array trong render:** \`useMemo(() => [1,2,3], [])\` — cần thiết, \`[1,2,3]\` tạo reference mới mỗi render
+2. **Memo quá nhiều:** Mỗi memo = overhead (compare deps + cache) — chỉ memo khi render con THỰC SỰ tốn kém
+3. **Deps array sai:** Quên dependency → stale data, thừa dependency → memo vô dụng
+4. **Memo không phải guarantee:** React có thể drop cache bất kỳ lúc nào
+
+### Race Conditions in UI State
+\`\`\`
+User click "Load A" → fetch A starts (slow)
+User click "Load B" → fetch B starts (fast)
+B returns first → UI shows B ✅
+A returns later → UI shows A ❌ (stale!)
+\`\`\`
+**Fix:** AbortController, request ID tracking, hoặc RxJS \`switchMap\`.
+
+### Finite State Modeling
+Thay vì nhiều boolean flags (\`isLoading\`, \`isError\`, \`isSuccess\`), dùng **state machine**:
+\`\`\`
+type State = 'idle' | 'loading' | 'success' | 'error';
+// Impossible states become impossible:
+// isLoading = true && isError = true → CAN'T HAPPEN
+\`\`\`
+**Libraries:** XState, Robot — prevent impossible states bằng explicit transitions.
+
+### Event Sourcing in Frontend
+Thay vì lưu current state, lưu **chuỗi events**:
+\`\`\`
+events = [
+  { type: 'ITEM_ADDED', payload: { id: 1, name: 'A' } },
+  { type: 'ITEM_REMOVED', payload: { id: 1 } },
+  { type: 'ITEM_ADDED', payload: { id: 2, name: 'B' } }
+]
+currentState = events.reduce(reducer, initialState)
+\`\`\`
+**Use cases:** Undo/redo, collaborative editing, audit log, time-travel debugging (Redux DevTools).
+
+### Optimistic UI Rollback Strategy
+1. Update UI ngay lập tức (giả sử thành công)
+2. Gửi request đến server
+3. **Nếu fail:** Rollback UI về trạng thái trước + show error
+\`\`\`
+// Lưu previous state trước khi optimistic update
+const previousItems = [...items];
+setItems(items.filter(i => i.id !== id)); // Optimistic delete
+try {
+  await api.deleteItem(id);
+} catch {
+  setItems(previousItems); // Rollback!
+  showError('Delete failed');
+}
+\`\`\`
+
+### Deterministic Rendering
+Cùng state → **luôn** cùng output. Tránh:
+- \`Math.random()\` trong render
+- \`Date.now()\` trong render
+- Mutation side effects trong render
+
+**Tại sao quan trọng:** Concurrent rendering có thể render cùng component nhiều lần trước khi commit — nếu non-deterministic → UI flickering.
+
+### Idempotent UI Actions
+Gọi action N lần cho kết quả giống gọi 1 lần:
+\`\`\`javascript
+// ❌ Non-idempotent: mỗi click tăng count
+onClick = () => count += 1;
+
+// ✅ Idempotent: set giá trị cụ thể
+onClick = () => setLiked(true);
+\`\`\`
+**Tại sao quan trọng:** React StrictMode gọi render 2 lần, retry logic gọi handler nhiều lần — non-idempotent actions gây bugs.`,
+          code: {
+            language: 'typescript',
+            filename: 'state-patterns.ts',
+            code: `// Race condition fix với AbortController
+class SearchService {
+  private controller: AbortController | null = null;
+
+  async search(query: string): Promise<Result[]> {
+    // Hủy request trước đó
+    this.controller?.abort();
+    this.controller = new AbortController();
+
+    const response = await fetch(\`/api/search?q=\${query}\`, {
+      signal: this.controller.signal
+    });
+    return response.json();
+  }
+}
+
+// Finite State Machine (no impossible states)
+type FetchState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: Error };
+
+// TypeScript guarantees: data chỉ tồn tại khi success
+function render(state: FetchState<User[]>) {
+  switch (state.status) {
+    case 'loading': return '<spinner>';
+    case 'success': return renderList(state.data);
+    case 'error':   return state.error.message;
+    default:        return '<empty>';
+  }
+}`
+          },
+          tips: [
+            'Structural sharing là lý do Redux/NgRx performant dù dùng immutable state — chỉ re-render component có reference thay đổi',
+            'Race condition trong search/autocomplete: Angular dùng switchMap, React dùng AbortController hoặc useId()',
+            'Discriminated unions (status field) tốt hơn nhiều boolean — TypeScript narrowing tự động',
+            'Optimistic UI nên có timeout cho rollback — nếu server không response trong 5s, rollback và retry'
+          ]
+        },
+        // LEVEL 5
+        {
+          title: 'Level 5: Caching & Networking Chiến Lược',
+          content: `**Tối ưu network layer — nơi UX thực sự khác biệt**
+
+### Cache Invalidation Strategies
+| Strategy | Mô tả | Khi nào dùng |
+|----------|-------|------------|
+| **Time-based (TTL)** | Cache hết hạn sau N giây | Static assets, config |
+| **Event-based** | Invalidate khi có mutation | CRUD operations |
+| **Polling** | Refetch định kỳ | Dashboard, realtime-ish data |
+| **Push-based** | Server push invalidation (WebSocket) | Chat, notifications |
+| **Stale-while-revalidate** | Trả cache cũ ngay, fetch mới background | API data |
+
+### Stale-While-Revalidate
+\`\`\`
+Request → Cache HIT? → Trả data cũ ngay (fast!) → Background fetch mới → Update cache
+                       ↓
+                     Cache MISS? → Fetch từ server → Trả data → Cache lại
+\`\`\`
+**Implementors:** SWR (React), TanStack Query, Angular httpResource, HTTP Cache-Control header.
+
+### ETag vs Cache-Control
+| Header | Cơ chế | Network request? |
+|--------|--------|-----------------|
+| \`Cache-Control: max-age=3600\` | Browser dùng cache trong 1h, KHÔNG hỏi server | Không (within TTL) |
+| \`ETag: "abc123"\` | Browser hỏi server "data có thay đổi không?" (\`If-None-Match\`) | Có, nhưng 304 Not Modified = no body |
+
+**Best practice:** Static assets → \`Cache-Control: max-age=31536000, immutable\` + filename hash. API → \`ETag\` + \`stale-while-revalidate\`.
+
+### HTTP/3 and QUIC
+| Feature | HTTP/2 | HTTP/3 |
+|---------|--------|--------|
+| Transport | TCP | **QUIC (UDP-based)** |
+| Head-of-line blocking | Có (TCP level) | **Không** (stream-level) |
+| Connection setup | TCP + TLS = 2-3 RTT | **1 RTT** (0-RTT with resumption) |
+| Connection migration | Không | **Có** (WiFi → 4G seamless) |
+
+### Backpressure in Streams API
+Khi producer nhanh hơn consumer → data tích tụ → memory blow up.
+\`\`\`javascript
+// ReadableStream có built-in backpressure
+const stream = new ReadableStream({
+  pull(controller) {
+    // Chỉ được gọi khi consumer ready nhận data
+    controller.enqueue(getNextChunk());
+  }
+});
+\`\`\`
+
+### AbortController
+\`\`\`javascript
+const controller = new AbortController();
+fetch('/api/data', { signal: controller.signal })
+  .catch(err => {
+    if (err.name === 'AbortError') console.log('Cancelled');
+  });
+
+// Cancel request
+controller.abort();
+// Bonus: 1 controller cancel NHIỀU requests
+\`\`\`
+**Use cases:** Cancel fetch khi component unmount, cancel previous search, timeout.
+
+### Streaming Fetch Response
+\`\`\`javascript
+const response = await fetch('/api/large-data');
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  const chunk = decoder.decode(value, { stream: true });
+  appendToUI(chunk); // Progressive rendering!
+}
+\`\`\`
+**Use cases:** LLM streaming responses, large file download with progress, SSE alternative.
+
+### Priority Hints
+\`\`\`html
+<!-- Quan trọng: load sớm -->
+<img src="hero.jpg" fetchpriority="high">
+<link rel="preload" href="critical.css" fetchpriority="high">
+
+<!-- Ít quan trọng: load sau -->
+<img src="footer-logo.jpg" fetchpriority="low">
+<script src="analytics.js" fetchpriority="low"></script>
+\`\`\`
+Giúp browser **ưu tiên tải tài nguyên quan trọng** trong cùng priority bucket.
+
+### SameSite Cookie Modes
+| Mode | Cross-site request | Khi nào dùng |
+|------|-------------------|------------|
+| \`Strict\` | KHÔNG gửi cookie | Banking, sensitive actions |
+| \`Lax\` (default) | Chỉ gửi với top-level navigation (GET) | Hầu hết trường hợp |
+| \`None\` | Luôn gửi (cần Secure) | Cross-site APIs, embedded content |
+
+### Speculative Prerendering
+\`\`\`html
+<!-- Chrome 109+: Speculation Rules API -->
+<script type="speculationrules">
+{
+  "prerender": [
+    { "where": { "href_matches": "/product/*" } }
+  ]
+}
+</script>
+\`\`\`
+Browser **render sẵn trang tiếp theo** trước khi user click → **instant navigation**.`,
+          code: {
+            language: 'typescript',
+            filename: 'caching-strategy.ts',
+            code: `// Stale-While-Revalidate pattern
+class SWRCache<T> {
+  private cache = new Map<string, {
+    data: T; timestamp: number;
+  }>();
+
+  async get(
+    key: string,
+    fetcher: () => Promise<T>,
+    maxAge = 60_000
+  ): Promise<T> {
+    const cached = this.cache.get(key);
+
+    if (cached) {
+      const isStale = Date.now() - cached.timestamp > maxAge;
+      if (isStale) {
+        // Return stale data, revalidate in background
+        fetcher().then(data => {
+          this.cache.set(key, { data, timestamp: Date.now() });
+        });
+      }
+      return cached.data; // Return immediately
+    }
+
+    // Cache miss: fetch and cache
+    const data = await fetcher();
+    this.cache.set(key, { data, timestamp: Date.now() });
+    return data;
+  }
+}`
+          },
+          tips: [
+            'Cache-Control: immutable + content hash = perfect caching — file thay đổi → hash mới → URL mới → browser fetch fresh',
+            'AbortController là must-know — Angular HttpClient hủy request khi unsubscribe, React cần tự implement',
+            'fetchpriority="high" trên LCP image giảm LCP đáng kể — Chrome hint đơn giản nhất',
+            'SameSite=Lax là default từ Chrome 80 — nếu app cần cross-site cookies phải explicit set None + Secure'
+          ]
+        },
+        // LEVEL 6
+        {
+          title: 'Level 6: Security — Không Biết Là "Toang"',
+          content: `**Bảo mật frontend không chỉ là XSS — những attack vector ít ai biết**
+
+### Content Security Policy (CSP)
+\`\`\`
+Content-Security-Policy:
+  default-src 'self';
+  script-src 'self' 'nonce-abc123';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: https://cdn.example.com;
+  connect-src 'self' https://api.example.com;
+\`\`\`
+**CSP ngăn XSS bằng cách chỉ cho phép load resources từ nguồn tin cậy.** Inline scripts bị block trừ khi có nonce hoặc hash.
+
+### Trusted Types
+**API ngăn DOM XSS** bằng cách yêu cầu sanitize trước khi gán vào dangerous sinks:
+\`\`\`javascript
+// Bật Trusted Types qua CSP
+// Content-Security-Policy: require-trusted-types-for 'script'
+
+// Tạo policy
+const policy = trustedTypes.createPolicy('safe', {
+  createHTML: (input) => DOMPurify.sanitize(input)
+});
+
+// Bắt buộc dùng policy — gán string thường sẽ throw error
+element.innerHTML = policy.createHTML(userInput);
+// element.innerHTML = userInput; // ❌ TypeError!
+\`\`\`
+
+### DOM Clobbering
+Attacker inject HTML elements với \`id\` hoặc \`name\` **ghi đè lên global variables**:
+\`\`\`html
+<!-- Attacker injects: -->
+<img id="config">
+<script>
+  // window.config bây giờ trỏ tới <img> element thay vì app config!
+  if (config.isAdmin) { /* bypass! */ }
+</script>
+\`\`\`
+**Fix:** Luôn dùng \`const config = ...\` thay vì đọc global, dùng \`Object.freeze\`, CSP block inline HTML.
+
+### Prototype Pollution
+\`\`\`javascript
+// Attacker gửi JSON: { "__proto__": { "isAdmin": true } }
+const merged = Object.assign({}, userInput);
+// Bây giờ MỌI object đều có isAdmin = true!
+
+const user = {};
+console.log(user.isAdmin); // true — TOANG!
+\`\`\`
+**Fix:** Validate input, dùng \`Object.create(null)\` cho dictionaries, dùng \`Map\` thay vì plain objects.
+
+### Same-Origin Policy Nuances
+| Action | Same-origin required? |
+|--------|----------------------|
+| Fetch/XHR | Có (hoặc CORS) |
+| \`<img src>\` | Không (nhưng canvas bị tainted) |
+| \`<script src>\` | Không (JSONP exploit!) |
+| \`<iframe>\` | Load được, nhưng không access content |
+| localStorage | Cùng origin |
+| Cookies | Cùng domain (có thể khác port) |
+
+### Service Worker Lifecycle Traps
+1. **Install:** SW mới install nhưng **KHÔNG active ngay** — SW cũ vẫn control page
+2. **Waiting:** SW mới chờ cho đến khi ALL tabs dùng SW cũ đóng hết
+3. **Activate:** SW mới take over
+4. **Trap:** \`skipWaiting()\` force activate → nhưng nếu page code expect SW cũ → **BUG!**
+
+### SharedArrayBuffer
+Bộ nhớ chia sẻ giữa main thread và Workers — cho phép **true multi-threading** trong JS:
+- Yêu cầu **Cross-Origin Isolation** (COOP + COEP headers)
+- Dùng \`Atomics\` API để tránh race conditions
+- **Tại sao bị giới hạn:** Spectre attack có thể đọc cross-origin data qua timing
+
+### Transferable Objects
+\`\`\`javascript
+const buffer = new ArrayBuffer(1024 * 1024); // 1MB
+// ❌ Slow: copy 1MB sang worker
+worker.postMessage(buffer);
+
+// ✅ Fast: transfer ownership — zero-copy
+worker.postMessage(buffer, [buffer]);
+// buffer.byteLength === 0 bây giờ! (transferred)
+\`\`\`
+
+### CORS Preflight Internals
+\`\`\`
+Browser                          Server
+  │──── OPTIONS /api/data ──────→│
+  │     Origin: https://app.com  │
+  │     Access-Control-Request-  │
+  │       Method: PUT            │
+  │     Access-Control-Request-  │
+  │       Headers: X-Custom      │
+  │                              │
+  │←── 204 No Content ──────────│
+  │    Access-Control-Allow-     │
+  │      Origin: https://app.com │
+  │    Access-Control-Allow-     │
+  │      Methods: GET, PUT       │
+  │    Access-Control-Max-Age:   │
+  │      86400                   │
+  │                              │
+  │──── PUT /api/data ──────────→│  (actual request)
+\`\`\`
+
+### Offline Conflict Resolution
+Khi user edit offline, sync khi online lại → conflict với server data:
+| Strategy | Mô tả | Khi nào dùng |
+|----------|-------|------------|
+| **Last-write-wins** | Bản ghi cuối cùng ghi đè | Simple, acceptable data loss |
+| **Merge** | Tự động merge fields không conflict | Document editing |
+| **CRDT** | Conflict-free data structures | Collaborative realtime |
+| **Manual** | Hiện UI cho user chọn | Critical data |`,
+          code: {
+            language: 'typescript',
+            filename: 'security-headers.ts',
+            code: `// Express.js security headers setup
+import helmet from 'helmet';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", (req, res) => \`'nonce-\${res.locals.nonce}'\`],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https://cdn.example.com"],
+      connectSrc: ["'self'", "https://api.example.com"],
+    }
+  },
+  // Cross-Origin Isolation (needed for SharedArrayBuffer)
+  crossOriginEmbedderPolicy: true,
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+}));
+
+// Prototype pollution prevention
+function safeMerge(target: any, source: any) {
+  for (const key of Object.keys(source)) {
+    if (key === '__proto__' || key === 'constructor'
+        || key === 'prototype') continue; // Block!
+    target[key] = source[key];
+  }
+  return target;
+}`
+          },
+          tips: [
+            'CSP nonce phải random MỖI request — nếu static nonce thì attacker chỉ cần đọc 1 lần',
+            'Prototype pollution phổ biến trong lodash.merge, jQuery.extend — luôn dùng phiên bản mới nhất',
+            'SharedArrayBuffer bị disable mặc định sau Spectre — cần COOP + COEP headers mới dùng được',
+            'Angular có built-in XSS protection — DomSanitizer tự động sanitize, chỉ bypass khi THỰC SỰ cần (bypassSecurityTrustHtml)'
+          ]
+        },
+        // LEVEL 7
+        {
+          title: 'Level 7: Web Platform Internals',
+          content: `**APIs và kiến trúc ít được nói đến nhưng cực kỳ quan trọng**
+
+### Islands Architecture
+Thay vì hydrate toàn bộ page (SPA), chỉ hydrate **các "đảo" interactive**:
+\`\`\`
+┌──────────────────────────────────┐
+│  Static HTML (server-rendered)    │
+│  ┌──────────┐    ┌──────────┐    │
+│  │  Island   │    │  Island   │    │
+│  │ (React)   │    │ (Svelte)  │    │
+│  │ hydrated  │    │ hydrated  │    │
+│  └──────────┘    └──────────┘    │
+│                                    │
+│  Static content... no JS needed    │
+└──────────────────────────────────┘
+\`\`\`
+**Frameworks:** Astro, Fresh (Deno). **Lợi ích:** Ít JS hơn → faster TTI.
+
+### Partial Hydration
+Hydration chọn lọc — chỉ hydrate component khi:
+- **Visible:** IntersectionObserver detect element in viewport
+- **Idle:** requestIdleCallback khi browser rảnh
+- **Interaction:** User hover/click mới hydrate
+- **Media query:** Chỉ hydrate trên desktop, không mobile
+
+### Streaming SSR
+Server gửi HTML **từng phần** thay vì đợi render xong hết:
+\`\`\`
+1. Server gửi <html><head>... → Browser bắt đầu parse
+2. Server gửi header + nav → Browser hiển thị
+3. Server chờ data fetch cho main content...
+4. Server gửi <main>...</main> → Browser append
+5. Server gửi </html> → Done
+\`\`\`
+**Angular:** \`provideServerRendering()\` + \`@defer\` blocks. **React:** \`renderToPipeableStream\`.
+
+### Shadow DOM
+**Encapsulation thực sự** — CSS và DOM bên trong Shadow DOM **hoàn toàn cô lập**:
+\`\`\`javascript
+const shadow = element.attachShadow({ mode: 'open' });
+shadow.innerHTML = \`
+  <style>p { color: red; }</style>  <!-- Chỉ áp dụng bên trong -->
+  <p>Isolated content</p>
+\`;
+// document.querySelector('p') KHÔNG thấy p bên trong shadow!
+\`\`\`
+**Angular ViewEncapsulation.ShadowDom** dùng native Shadow DOM (vs Emulated dùng attribute scoping).
+
+### Custom Elements Lifecycle
+| Callback | Khi nào gọi |
+|----------|------------|
+| \`constructor()\` | Element created (trước khi attach vào DOM) |
+| \`connectedCallback()\` | Element thêm vào DOM |
+| \`disconnectedCallback()\` | Element bị remove khỏi DOM |
+| \`attributeChangedCallback(name, old, new)\` | Observed attribute thay đổi |
+| \`adoptedCallback()\` | Element chuyển sang document khác |
+
+### Web Components Interoperability
+Web Components hoạt động với **mọi framework** vì dựa trên web standards:
+- Angular: Dùng \`CUSTOM_ELEMENTS_SCHEMA\` hoặc Angular Elements để wrap
+- React: Cần wrapper cho events (React không listen custom events)
+- Limitations: SSR support yếu, global registry (name collision), styling cumbersome
+
+### IntersectionObserver Internals
+**Async, non-blocking** — không chạy trên main thread, báo callback khi element vào/ra viewport:
+\`\`\`javascript
+const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        loadImage(entry.target);    // Lazy load
+        observer.unobserve(entry.target);
+      }
+    });
+  },
+  { rootMargin: '200px', threshold: 0 } // Trigger 200px trước khi visible
+);
+\`\`\`
+**Use cases:** Lazy loading images, infinite scroll, animation on scroll, ad viewability.
+
+### ResizeObserver Loop Limits
+\`\`\`javascript
+// ❌ Infinite loop: observer callback thay đổi size → trigger observer lại
+const observer = new ResizeObserver(entries => {
+  entries[0].target.style.width = entries[0].contentRect.width + 10 + 'px';
+  // → Trigger ResizeObserver lại → loop!
+});
+\`\`\`
+**Browser protection:** Sau 1 loop iteration, browser báo \`ResizeObserver loop completed with undelivered notifications\` và dừng.
+
+### MutationObserver Cost
+Theo dõi DOM changes (childList, attributes, characterData):
+- **CPU cost:** Proportional to mutation rate — nếu mutate DOM 1000 lần/frame → 1000 records
+- **Tip:** Batch mutations, disconnect observer khi không cần, dùng \`subtree: false\` khi có thể
+
+### OffscreenCanvas
+\`\`\`javascript
+// Main thread
+const offscreen = canvas.transferControlToOffscreen();
+worker.postMessage({ canvas: offscreen }, [offscreen]);
+
+// Worker thread — vẽ KHÔNG block main thread
+const ctx = offscreen.getContext('2d');
+function draw() {
+  ctx.clearRect(0, 0, 800, 600);
+  // Heavy drawing logic ở đây
+  requestAnimationFrame(draw);
+}
+\`\`\`
+**Use cases:** Game rendering, data visualization, image processing — tất cả off main thread.`,
+          code: {
+            language: 'typescript',
+            filename: 'web-components.ts',
+            code: `// Custom Element with Shadow DOM
+class AppCounter extends HTMLElement {
+  private count = 0;
+  private shadow: ShadowRoot;
+
+  constructor() {
+    super();
+    this.shadow = this.attachShadow({ mode: 'open' });
+    this.render();
+  }
+
+  static get observedAttributes() { return ['initial']; }
+
+  attributeChangedCallback(name: string, _old: string, val: string) {
+    if (name === 'initial') this.count = parseInt(val) || 0;
+    this.render();
+  }
+
+  connectedCallback() {
+    this.shadow.querySelector('button')
+      ?.addEventListener('click', () => {
+        this.count++;
+        this.render();
+        this.dispatchEvent(new CustomEvent('count-changed', {
+          detail: this.count, bubbles: true, composed: true
+        }));
+      });
+  }
+
+  render() {
+    this.shadow.innerHTML = \`
+      <style>
+        button { padding: 8px 16px; font-size: 16px; }
+      </style>
+      <button>Count: \${this.count}</button>
+    \`;
+  }
+}
+customElements.define('app-counter', AppCounter);
+// <app-counter initial="5"></app-counter>`
+          },
+          tips: [
+            'Islands architecture + Astro là lựa chọn tuyệt vời cho content-heavy sites — blog, docs, marketing pages',
+            'Angular @defer block là partial hydration built-in — dùng on viewport, on idle, on interaction triggers',
+            'IntersectionObserver MIỄN PHÍ về performance so với scroll event listener — luôn ưu tiên dùng',
+            'OffscreenCanvas perfect cho chart libraries nặng — move toàn bộ rendering sang Worker'
+          ]
+        },
+        // LEVEL 8
+        {
+          title: 'Level 8: Concurrency & Streams',
+          content: `**Xử lý đồng thời trong JavaScript — single-threaded nhưng không đơn giản**
+
+### Task Starvation
+Khi high-priority tasks liên tục chiếm main thread → low-priority tasks **không bao giờ được chạy**:
+\`\`\`
+Microtask queue: [task1, task2, task3, ... task1000]
+// Browser drain ALL microtasks trước khi render
+// → Nếu microtask queue vô hạn → UI freeze, setTimeout callbacks starve
+\`\`\`
+**Ví dụ thực tế:** \`Promise.resolve().then(function loop() { Promise.resolve().then(loop); })\` → **infinite microtask loop** → page treo.
+
+### Priority Inversion in Async Code
+High-priority task phải chờ low-priority task hoàn thành:
+\`\`\`javascript
+// Low-priority: analytics batch processing (takes 200ms)
+const analyticsPromise = processAnalytics();
+
+// High-priority: user click handler
+button.onclick = async () => {
+  await analyticsPromise; // Phải chờ analytics xong mới tiếp tục!
+  showResult(); // User chờ 200ms cho cái không liên quan
+};
+\`\`\`
+**Fix:** Không \`await\` không cần thiết, dùng \`scheduler.postTask()\` với priority levels, tách async chains.
+
+### Scheduler Internals
+**\`scheduler.postTask()\`** (Chrome 94+) — native task scheduling API:
+\`\`\`javascript
+// 3 priority levels
+scheduler.postTask(() => handleClick(), { priority: 'user-blocking' });
+scheduler.postTask(() => updateAnalytics(), { priority: 'background' });
+scheduler.postTask(() => renderWidget(), { priority: 'user-visible' });
+\`\`\`
+Browser tự schedule dựa trên priority + deadline. **React Scheduler** implement tương tự nhưng ở userland.
+
+### Concurrent Rendering Tearing
+\`\`\`
+Time →
+Component A reads store.value = 1   ──────┐
+     [yield to browser]                     │ Store updates to 2
+Component B reads store.value = 2   ──────┘
+// A shows "1", B shows "2" → UI inconsistent!
+\`\`\`
+**Tearing** xảy ra khi render bị interrupt giữa chừng và external state thay đổi.
+**Fix:** \`useSyncExternalStore\` (React), Signals (Angular) — đảm bảo snapshot consistency.
+
+### Backpressure Handling
+\`\`\`javascript
+// TransformStream với backpressure tự động
+const transformer = new TransformStream({
+  transform(chunk, controller) {
+    // Nếu consumer chậm, transform sẽ tự động
+    // bị "paused" cho đến khi consumer ready
+    const processed = heavyProcessing(chunk);
+    controller.enqueue(processed);
+  }
+}, {
+  highWaterMark: 3  // Buffer tối đa 3 chunks
+});
+
+// Pipe với backpressure
+readableStream
+  .pipeThrough(transformer)
+  .pipeTo(writableStream);
+\`\`\`
+
+### Streaming SSR Pipelines
+\`\`\`
+Request → [Auth Check] → [Route Match] → [Data Fetch (parallel)] → [Render Shell]
+                                              ↓
+                              [Stream Header HTML] → Client starts rendering
+                                              ↓
+                              [Await async data] → [Stream Suspense fallback replacement]
+                                              ↓
+                              [Stream remaining HTML + inline scripts]
+\`\`\`
+**Angular:** \`provideServerRendering()\` tự động stream. **React:** \`renderToPipeableStream\` + Suspense.
+
+### WebRTC Basics
+**Peer-to-peer communication** — audio, video, data trực tiếp giữa browsers:
+\`\`\`
+Peer A ←→ Signaling Server ←→ Peer B
+  │          (WebSocket)          │
+  │                              │
+  └──── Direct P2P Connection ───┘
+        (ICE/STUN/TURN)
+\`\`\`
+- **Signaling:** Trao đổi SDP (Session Description Protocol) qua server
+- **ICE:** Tìm đường kết nối (direct, STUN, TURN fallback)
+- **DataChannel:** Gửi data P2P (games, file sharing, collaborative editing)
+
+### CRDT Basics for Collaboration
+**Conflict-free Replicated Data Types** — data structures tự merge mà không conflict:
+| CRDT Type | Ví dụ | Use case |
+|-----------|-------|----------|
+| G-Counter | Chỉ tăng | Like count |
+| PN-Counter | Tăng/giảm | Cart quantity |
+| LWW-Register | Last-write-wins | Single value |
+| OR-Set | Add/remove set | Tags, members |
+| RGA | Replicated array | Collaborative text |
+
+**Libraries:** Yjs, Automerge — dùng cho Google Docs-like experiences.
+
+### Shared Memory Models
+\`\`\`javascript
+// SharedArrayBuffer + Atomics
+const sab = new SharedArrayBuffer(1024);
+const view = new Int32Array(sab);
+
+// Worker A
+Atomics.store(view, 0, 42);
+Atomics.notify(view, 0);      // Đánh thức worker đang wait
+
+// Worker B
+Atomics.wait(view, 0, 0);     // Chờ cho đến khi giá trị thay đổi
+console.log(Atomics.load(view, 0)); // 42
+\`\`\`
+
+### Deterministic UI Under Async
+Đảm bảo UI consistent dù async operations hoàn thành theo thứ tự bất kỳ:
+- **Request ordering:** Track request IDs, ignore stale responses
+- **State snapshots:** Render từ immutable snapshot, không từ mutable ref
+- **Batching:** Group state updates → single render (React 18 auto-batching, Angular signal batching)`,
+          code: {
+            language: 'typescript',
+            filename: 'concurrent-patterns.ts',
+            code: `// Scheduler API with priority
+async function handleUserInteraction() {
+  // Urgent: update UI immediately
+  scheduler.postTask(
+    () => updateButtonState(),
+    { priority: 'user-blocking' }
+  );
+
+  // Less urgent: fetch and render data
+  scheduler.postTask(
+    () => fetchAndRenderResults(),
+    { priority: 'user-visible' }
+  );
+
+  // Background: analytics
+  scheduler.postTask(
+    () => trackEvent('click'),
+    { priority: 'background' }
+  );
+}
+
+// CRDT-like counter (simplified)
+class GCounter {
+  private counts = new Map<string, number>();
+
+  increment(nodeId: string) {
+    this.counts.set(nodeId,
+      (this.counts.get(nodeId) || 0) + 1);
+  }
+
+  merge(other: GCounter) {
+    for (const [id, count] of other.counts) {
+      this.counts.set(id,
+        Math.max(this.counts.get(id) || 0, count));
+    }
+  }
+
+  get value(): number {
+    let sum = 0;
+    for (const count of this.counts.values()) sum += count;
+    return sum;
+  }
+}`
+          },
+          tips: [
+            'queueMicrotask() vô hạn = page freeze — luôn có exit condition cho recursive microtasks',
+            'scheduler.postTask() là tương lai của task scheduling — polyfill có thể dùng ngay hôm nay',
+            'CRDT là nền tảng cho Figma, Google Docs, Linear — học Yjs là đầu tư xứng đáng',
+            'WebRTC DataChannel có thể thay WebSocket cho low-latency use cases (gaming, trading)'
+          ]
+        },
+        // LEVEL 9
+        {
+          title: 'Level 9: Performance Metrics Thực Chiến',
+          content: `**Đo lường và tối ưu Core Web Vitals — metrics Google dùng để rank SEO**
+
+### First Input Delay (FID) → Interaction to Next Paint (INP)
+**FID (deprecated 2024):** Đo delay từ first interaction → browser bắt đầu xử lý.
+**INP (thay thế FID):** Đo delay của **TẤT CẢ interactions** trong page lifecycle, lấy worst-case.
+
+| Rating | INP |
+|--------|-----|
+| Good | ≤ 200ms |
+| Needs Improvement | 200-500ms |
+| Poor | > 500ms |
+
+**Cải thiện INP:** Break long tasks, yield to main thread, minimize JS execution trong event handlers.
+
+### Interaction to Next Paint (INP) Deep Dive
+INP đo 3 phases:
+\`\`\`
+[Input Delay] + [Processing Time] + [Presentation Delay] = Total INP
+     ↓                  ↓                    ↓
+Main thread busy   Event handler       Render + Paint
+khi user click     execution time      after handler
+\`\`\`
+**Target từng phase:**
+- Input Delay: Giảm long tasks, code splitting
+- Processing: Tối ưu event handler, debounce
+- Presentation: Minimize DOM mutations, avoid layout thrashing
+
+### Cumulative Layout Shift (CLS)
+Đo **tổng mức độ dịch chuyển layout bất ngờ** — elements nhảy lung tung khi page load:
+\`\`\`
+CLS = Σ (impact fraction × distance fraction)
+\`\`\`
+| Rating | CLS |
+|--------|-----|
+| Good | ≤ 0.1 |
+| Poor | > 0.25 |
+
+**Nguyên nhân phổ biến:** Images không có width/height, fonts swap, dynamic content inject, ads.
+**Fix:** Luôn set dimensions cho media, \`font-display: optional\`, skeleton UI, \`content-visibility\`.
+
+### Largest Contentful Paint (LCP)
+Thời gian hiển thị **phần tử lớn nhất** trong viewport (thường là hero image hoặc heading):
+
+| Rating | LCP |
+|--------|-----|
+| Good | ≤ 2.5s |
+| Poor | > 4.0s |
+
+**Tối ưu LCP:**
+1. \`<link rel="preload">\` cho LCP image
+2. \`fetchpriority="high"\` trên LCP element
+3. Inline critical CSS
+4. Server-side rendering
+5. CDN cho static assets
+
+### PerformanceObserver API
+\`\`\`javascript
+// Quan sát Long Tasks
+const observer = new PerformanceObserver((list) => {
+  for (const entry of list.getEntries()) {
+    if (entry.duration > 50) {
+      console.warn('Long task:', entry.duration, 'ms');
+      // Gửi lên analytics
+    }
+  }
+});
+observer.observe({ type: 'longtask', buffered: true });
+
+// Quan sát LCP
+new PerformanceObserver((list) => {
+  const entries = list.getEntries();
+  const lastEntry = entries[entries.length - 1];
+  console.log('LCP:', lastEntry.startTime, lastEntry.element);
+}).observe({ type: 'largest-contentful-paint', buffered: true });
+\`\`\`
+
+### Long Tasks API
+Task chạy **> 50ms** trên main thread = long task → block interactions:
+\`\`\`
+50ms threshold vì:
+- 16ms = 1 frame @ 60fps
+- Event handling + render cần ~16ms
+- 50ms = 3 frames bị drop → user CẢM NHẬN delay
+\`\`\`
+**Detect:** PerformanceObserver type 'longtask'. **Fix:** Yield via \`scheduler.yield()\`, requestIdleCallback, Web Workers.
+
+### Browser Memory Leak Detection
+**Chrome DevTools workflow:**
+1. **Performance Monitor:** Watch JS Heap Size over time
+2. **Memory → Heap Snapshot:** Take snapshot → do action → take snapshot → Compare
+3. **Memory → Allocation Timeline:** Record, do action, stop → see what allocated and NOT freed
+4. **Search "Detached"** in heap snapshot → find detached DOM trees
+
+**Common leaks:**
+- Event listeners not removed
+- setInterval not cleared
+- Closures holding references to large objects
+- Detached DOM nodes referenced by JS
+
+### Accessibility Tree
+Browser xây dựng **a11y tree song song DOM tree** — screen readers đọc tree này:
+\`\`\`
+DOM: <button class="btn-primary">Submit</button>
+A11y tree: Role: button, Name: "Submit", Focusable: true
+\`\`\`
+**Chrome DevTools → Elements → Accessibility pane** để inspect a11y tree.
+**Angular:** Luôn dùng semantic HTML, \`aria-*\` attributes khi cần, test với screen reader.
+
+### ARIA Live Regions
+\`\`\`html
+<!-- Screen reader thông báo khi nội dung thay đổi -->
+<div aria-live="polite">  <!-- Chờ user đọc xong mới thông báo -->
+  {{ statusMessage }}
+</div>
+
+<div aria-live="assertive"> <!-- Ngắt ngay, thông báo NGAY -->
+  {{ errorMessage }}
+</div>
+
+<div role="status">  <!-- Implicit aria-live="polite" -->
+  Loading... {{ progress }}%
+</div>
+\`\`\`
+
+### Pointer Events Model
+\`\`\`
+Hierarchy: PointerEvent → MouseEvent → UIEvent → Event
+\`\`\`
+| Feature | Mouse Events | Pointer Events |
+|---------|-------------|----------------|
+| Input types | Mouse only | Mouse + Touch + Pen |
+| Pressure | Không | \`event.pressure\` (0-1) |
+| Tilt | Không | \`event.tiltX/Y\` |
+| Multi-touch | Không | \`event.pointerId\` per finger |
+
+**Best practice:** Dùng Pointer Events thay Mouse Events — cover tất cả input types.`,
+          code: {
+            language: 'typescript',
+            filename: 'web-vitals-monitor.ts',
+            code: `// Core Web Vitals monitoring
+import { onCLS, onINP, onLCP } from 'web-vitals';
+
+function sendToAnalytics(metric: { name: string; value: number }) {
+  navigator.sendBeacon('/analytics', JSON.stringify(metric));
+}
+
+onCLS(sendToAnalytics);   // CLS
+onINP(sendToAnalytics);   // INP (replaces FID)
+onLCP(sendToAnalytics);   // LCP
+
+// Long task detection + yield pattern
+async function processLargeList(items: any[]) {
+  const CHUNK_SIZE = 50;
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const chunk = items.slice(i, i + CHUNK_SIZE);
+    processChunk(chunk);
+
+    // Yield to main thread between chunks
+    if (i + CHUNK_SIZE < items.length) {
+      await scheduler.yield(); // or: await new Promise(r => setTimeout(r, 0));
+    }
+  }
+}`
+          },
+          tips: [
+            'INP thay FID từ tháng 3/2024 — INP khắt khe hơn vì đo TẤT CẢ interactions, không chỉ first',
+            'CLS: luôn set width + height cho <img> và <video> — đây là fix đơn giản nhất, hiệu quả nhất',
+            'LCP: preload hero image + fetchpriority="high" = cải thiện LCP 20-40% ngay lập tức',
+            'web-vitals library (Google) là standard — npm install web-vitals, < 1.5KB gzipped'
+          ]
+        },
+        // LEVEL 10
+        {
+          title: 'Level 10: Kiến Trúc Hệ Thống Frontend Hiện Đại',
+          content: `**System design cho frontend — câu hỏi phỏng vấn senior/staff engineer**
+
+### Edge Rendering
+Render HTML **tại CDN edge nodes** gần user nhất thay vì origin server:
+\`\`\`
+User (VN) → Edge Node (Singapore) → Render HTML → Response
+         vs
+User (VN) → Origin Server (US-West) → Render HTML → Response
+\`\`\`
+**Platforms:** Cloudflare Workers, Vercel Edge Functions, Deno Deploy.
+**Trade-off:** Edge không có database access nhanh → cần edge-compatible data layer (KV store, D1, PlanetScale).
+
+### Micro-Frontend Orchestration
+Chia application thành **independent deployable frontends** owned by different teams:
+\`\`\`
+┌─── Shell App (routing, auth, layout) ───┐
+│  ┌──────────┐  ┌──────────┐  ┌────────┐ │
+│  │ Team A    │  │ Team B    │  │ Team C  │ │
+│  │ Product   │  │ Cart      │  │ Account │ │
+│  │ (React)   │  │ (Angular) │  │ (Vue)   │ │
+│  └──────────┘  └──────────┘  └────────┘ │
+└──────────────────────────────────────────┘
+\`\`\`
+**Orchestration patterns:**
+- **Build-time:** npm packages, simple nhưng coupled deployment
+- **Run-time (client):** Module Federation, dynamic \`<script>\` loading
+- **Run-time (server):** Tailor (Zalando), server-side composition
+- **Edge-side:** ESI (Edge Side Includes)
+
+### Module Federation
+Webpack 5+ / Vite plugin cho phép **chia sẻ code giữa các apps RUNTIME**:
+\`\`\`
+App A (host) ←── dynamically imports ──→ App B (remote)
+     └── Shared dependencies (React, Angular) ── chỉ load 1 lần
+\`\`\`
+**Key concepts:**
+- **Expose:** Module mà app chia sẻ ra ngoài
+- **Remote:** App cung cấp modules
+- **Host:** App consume modules từ remotes
+- **Shared:** Dependencies dùng chung (singleton)
+
+### WebAssembly Integration
+Compile C/C++/Rust → Wasm → chạy trong browser gần native speed:
+| Use case | Ví dụ | Performance gain |
+|----------|-------|-----------------|
+| Image/Video processing | Photoshop web, FFmpeg.wasm | 10-100x vs JS |
+| Crypto | Hashing, encryption | 5-20x |
+| Game engines | Unity WebGL, Unreal | Required |
+| Data processing | Pandas-like in browser | 10-50x |
+
+\`\`\`javascript
+// Load and use Wasm module
+const wasm = await WebAssembly.instantiateStreaming(
+  fetch('/processor.wasm'),
+  { env: { memory: new WebAssembly.Memory({ initial: 256 }) } }
+);
+const result = wasm.instance.exports.processImage(imageData);
+\`\`\`
+
+### IndexedDB Scaling Strategy
+| Data size | Strategy |
+|-----------|----------|
+| < 5MB | localStorage đủ |
+| 5-50MB | IndexedDB single store |
+| 50MB-1GB | IndexedDB multiple stores + indices |
+| > 1GB | OPFS (Origin Private File System) + IndexedDB metadata |
+
+**Performance tips:**
+- Batch writes trong single transaction
+- Dùng index cho queries thường xuyên
+- Cursor pagination thay vì getAll() cho large datasets
+- Web Worker cho heavy IndexedDB operations
+
+### Server Components Architecture
+\`\`\`
+                    Server                          Client
+┌──────────────────────────┐    ┌──────────────────────────┐
+│  Server Component (RSC)   │    │  Client Component        │
+│  - Fetch data directly    │───→│  - Receives serialized    │
+│  - No JS shipped          │    │    React tree (not HTML)  │
+│  - Can import server-only │    │  - Hydrates interactive   │
+│  - Renders on every req   │    │    parts only             │
+└──────────────────────────┘    └──────────────────────────┘
+\`\`\`
+**Angular approach:** \`@defer\` blocks + SSR streaming achieve similar goals without RSC model.
+
+### Offline-First Design
+\`\`\`
+1. App loads from Service Worker cache (instant)
+2. UI renders with local IndexedDB data
+3. Background sync sends queued mutations to server
+4. Server responds → merge with local state
+5. Conflict? → Resolution strategy (CRDT, LWW, manual)
+\`\`\`
+**Stack:** Service Worker + IndexedDB + Background Sync API + Workbox (Google's SW library).
+
+### Conflict Resolution Models
+| Model | Mechanism | Consistency | Use case |
+|-------|-----------|-------------|----------|
+| **Last-Write-Wins (LWW)** | Timestamp comparison | Eventual, data loss possible | Simple settings, preferences |
+| **Operational Transform (OT)** | Transform operations against each other | Strong | Google Docs |
+| **CRDT** | Mathematically merge-able types | Strong eventual | Figma, Linear |
+| **Version Vectors** | Track causal history | Causal | Distributed databases |
+
+### Distributed UI Consistency
+Khi UI data đến từ **nhiều services với latency khác nhau**:
+\`\`\`
+User Profile Service (50ms) → Header shows "John"
+Cart Service (200ms) → Cart shows "0 items"
+Recommendation Service (500ms) → Products still loading
+
+→ UI updates 3 lần trong 500ms = visual instability
+\`\`\`
+**Patterns:**
+- **Optimistic consistency:** Show skeleton → fill as data arrives (accept inconsistency)
+- **Pessimistic consistency:** Wait for ALL data → show at once (slower but consistent)
+- **Hybrid:** Show shell + critical data immediately, defer non-critical
+
+### Frontend System Design Trade-offs
+| Decision | Option A | Option B | Khi nào chọn A |
+|----------|----------|----------|----------------|
+| Rendering | CSR (SPA) | SSR/SSG | Dashboard, admin tools |
+| State | Local state | Global store | Components < 3 levels deep |
+| Data fetching | REST | GraphQL | Simple CRUD, small team |
+| Styling | CSS Modules | CSS-in-JS | Performance-critical, SSR |
+| Build | Monorepo | Polyrepo | Shared code, < 10 services |
+| Deployment | Single deploy | Micro-frontends | < 3 teams on same app |
+| Caching | Browser cache | Service Worker | No offline requirement |
+| Real-time | Polling | WebSocket | Update frequency < 30s |`,
+          code: {
+            language: 'typescript',
+            filename: 'micro-frontend-shell.ts',
+            code: `// Module Federation config (webpack.config.js)
+const ModuleFederationPlugin =
+  require('webpack/lib/container/ModuleFederationPlugin');
+
+// Remote app (Team B - Cart)
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'cart',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './CartWidget': './src/CartWidget',
+      },
+      shared: {
+        react: { singleton: true },
+        'react-dom': { singleton: true },
+      },
+    }),
+  ],
+};
+
+// Host app (Shell)
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'shell',
+      remotes: {
+        cart: 'cart@https://cart.example.com/remoteEntry.js',
+      },
+      shared: {
+        react: { singleton: true },
+        'react-dom': { singleton: true },
+      },
+    }),
+  ],
+};
+
+// Dynamic import in Shell
+const CartWidget = React.lazy(
+  () => import('cart/CartWidget')
+);`
+          },
+          tips: [
+            'Edge rendering giảm TTFB 50-80% cho users xa origin — nhưng cần thiết kế data layer phù hợp',
+            'Module Federation singleton: true QUAN TRỌNG — nếu load 2 React instances → hooks crash',
+            'Micro-frontends chỉ cần khi có > 3 teams độc lập — cho 1-2 teams thì overhead > benefit',
+            'Offline-first + CRDT là kiến trúc phức tạp nhất — chỉ build khi business THỰC SỰ cần offline'
+          ]
+        }
+      ]
     }
   ];
 

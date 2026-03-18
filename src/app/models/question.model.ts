@@ -4,7 +4,7 @@ export interface Question {
   options: string[];
   correctAnswer: number;
   explanation: string;
-  category: 'basics' | 'components' | 'directives' | 'services' | 'routing' | 'forms' | 'rxjs' | 'lifecycle' | 'signals';
+  category: 'basics' | 'components' | 'directives' | 'services' | 'routing' | 'forms' | 'rxjs' | 'lifecycle' | 'signals' | 'frontend-architecture';
   difficulty: 'easy' | 'medium' | 'hard';
 }
 

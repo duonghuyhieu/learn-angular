@@ -390,6 +390,97 @@ export class QuestionService {
       explanation: 'HTTP Interceptors cho phép modify requests/responses globally: add auth headers, handle errors, logging, caching.',
       category: 'services',
       difficulty: 'medium'
+    },
+    // === FRONTEND ARCHITECTURE ===
+    {
+      id: 41,
+      question: 'Hydration trong SSR là gì?',
+      options: ['Tải CSS cho page', 'Đính kèm event listeners vào HTML tĩnh đã server-render', 'Minify JavaScript bundle', 'Tối ưu hình ảnh'],
+      correctAnswer: 1,
+      explanation: 'Hydration là quá trình đính kèm event listeners và state vào HTML tĩnh đã được server render, biến static HTML thành interactive app.',
+      category: 'frontend-architecture',
+      difficulty: 'easy'
+    },
+    {
+      id: 42,
+      question: 'Trong Event Loop, Microtasks (Promise.then) chạy khi nào so với Macrotasks (setTimeout)?',
+      options: ['Sau macrotasks', 'Trước macrotasks, drain hết queue', 'Xen kẽ với macrotasks', 'Cùng lúc với macrotasks'],
+      correctAnswer: 1,
+      explanation: 'Microtasks luôn được drain hết trước khi browser xử lý macrotask tiếp theo. Promise.then() luôn chạy trước setTimeout(fn, 0).',
+      category: 'frontend-architecture',
+      difficulty: 'medium'
+    },
+    {
+      id: 43,
+      question: 'Layout Thrashing xảy ra khi nào?',
+      options: ['CSS file quá lớn', 'Đọc và ghi DOM layout properties xen kẽ trong loop', 'Quá nhiều event listeners', 'JavaScript bundle quá nặng'],
+      correctAnswer: 1,
+      explanation: 'Layout thrashing xảy ra khi đọc layout property (offsetHeight) rồi ghi style rồi đọc lại liên tục, buộc browser recalculate layout mỗi lần.',
+      category: 'frontend-architecture',
+      difficulty: 'medium'
+    },
+    {
+      id: 44,
+      question: 'CSS property nào chỉ trigger Composite (chi phí thấp nhất) khi animate?',
+      options: ['width và height', 'margin và padding', 'transform và opacity', 'color và background'],
+      correctAnswer: 2,
+      explanation: 'transform và opacity chỉ trigger composite phase (GPU-accelerated), không cần layout hay paint lại, nên chi phí thấp nhất cho animation.',
+      category: 'frontend-architecture',
+      difficulty: 'easy'
+    },
+    {
+      id: 45,
+      question: 'Structural Sharing trong immutable state management nghĩa là gì?',
+      options: ['Clone toàn bộ state mỗi lần update', 'Tái sử dụng các phần không thay đổi của state tree', 'Chia state thành nhiều stores', 'Dùng WeakMap để cache state'],
+      correctAnswer: 1,
+      explanation: 'Structural sharing tái sử dụng các node không thay đổi trong state tree. Khi spread {...obj, a: newA}, obj.b vẫn giữ reference cũ (zero copy).',
+      category: 'frontend-architecture',
+      difficulty: 'hard'
+    },
+    {
+      id: 46,
+      question: 'Stale-While-Revalidate caching strategy hoạt động thế nào?',
+      options: ['Luôn fetch mới từ server', 'Trả cache cũ ngay lập tức, đồng thời fetch mới ở background', 'Chờ cache hết hạn rồi mới fetch', 'Cache vĩnh viễn không bao giờ update'],
+      correctAnswer: 1,
+      explanation: 'SWR trả data cũ từ cache ngay lập tức (fast UX), đồng thời fetch data mới ở background để update cache cho lần request tiếp theo.',
+      category: 'frontend-architecture',
+      difficulty: 'medium'
+    },
+    {
+      id: 47,
+      question: 'Content Security Policy (CSP) giúp phòng chống attack nào?',
+      options: ['SQL Injection', 'CSRF', 'XSS (Cross-Site Scripting)', 'DDoS'],
+      correctAnswer: 2,
+      explanation: 'CSP ngăn XSS bằng cách chỉ cho phép load/execute scripts từ nguồn tin cậy (whitelist). Inline scripts bị block trừ khi có nonce hoặc hash.',
+      category: 'frontend-architecture',
+      difficulty: 'easy'
+    },
+    {
+      id: 48,
+      question: 'Islands Architecture khác gì SPA truyền thống?',
+      options: ['Dùng nhiều framework cùng lúc', 'Chỉ hydrate các phần interactive, phần còn lại giữ static HTML', 'Render hoàn toàn trên server', 'Không dùng JavaScript'],
+      correctAnswer: 1,
+      explanation: 'Islands Architecture chỉ hydrate các "đảo" interactive trên trang, phần còn lại giữ nguyên static HTML. Giảm JS payload đáng kể so với SPA hydrate toàn bộ.',
+      category: 'frontend-architecture',
+      difficulty: 'hard'
+    },
+    {
+      id: 49,
+      question: 'INP (Interaction to Next Paint) đo gì và ngưỡng "Good" là bao nhiêu?',
+      options: ['Thời gian load trang, ≤ 1s', 'Độ trễ phản hồi tất cả interactions, ≤ 200ms', 'Thời gian render hình ảnh lớn nhất, ≤ 2.5s', 'Mức độ layout shift, ≤ 0.1'],
+      correctAnswer: 1,
+      explanation: 'INP (thay thế FID từ 2024) đo delay của TẤT CẢ interactions trong page lifecycle, lấy worst-case. Good ≤ 200ms, Poor > 500ms.',
+      category: 'frontend-architecture',
+      difficulty: 'medium'
+    },
+    {
+      id: 50,
+      question: 'Module Federation trong Micro-Frontend dùng để làm gì?',
+      options: ['Chia CSS thành modules', 'Chia sẻ code giữa các apps độc lập tại runtime', 'Bundle tất cả apps thành 1 file', 'Tạo Docker containers cho frontend'],
+      correctAnswer: 1,
+      explanation: 'Module Federation (Webpack 5+) cho phép các app độc lập chia sẻ code tại runtime — app host dynamically import modules từ app remote, shared dependencies chỉ load 1 lần.',
+      category: 'frontend-architecture',
+      difficulty: 'hard'
     }
   ];
 
